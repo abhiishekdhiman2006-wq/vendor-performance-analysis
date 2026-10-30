@@ -1,0 +1,201 @@
+<title>Vendor Performance Dashboard</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: title bar, 5 KPI tiles, then a 3-column grid (donut | vendors | brands) and a 2-column row (low-turnover vendors | brand scatter). */
+:root{
+  --bg:#dcecf9; --panel:#ffffff; --ink:#0d2c54; --ink2:#3f5a7d; --muted:#6c84a3; --line:#c3d6ea;
+  --blue:#0f4c9a; --green:#176b3a; --red:#c2182b; --blue-lt:#8cc0f5; --target:#d4182f; --other:#4a7fc0;
+  --b1:#0f4c9a; --b2:#1f63b8; --b3:#3079cc; --b4:#4a8fdb; --b5:#6ba6e6; --b6:#86b7ec; --b7:#a2c8f1; --b8:#b9d6f5; --b9:#cde1f7; --b10:#dbe9f9;
+  --font:'DM Sans',system-ui,sans-serif; --mono:'DM Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0b1a2e; --panel:#13294a; --ink:#e6f0fc; --ink2:#a9c1de; --muted:#7f98b8; --line:#244169;
+  --blue:#6aaaf0; --green:#58c585; --red:#ff7b8a; --blue-lt:#2f5e96; --target:#ff5a6d; --other:#6aaaf0;
+  --b1:#6aaaf0; --b2:#5c9be0; --b3:#4e8cd1; --b4:#437dc0; --b5:#396fae; --b6:#31629b; --b7:#2a5688; --b8:#244b77; --b9:#1f4168; --b10:#1b385a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0b1a2e; --panel:#13294a; --ink:#e6f0fc; --ink2:#a9c1de; --muted:#7f98b8; --line:#244169;
+  --blue:#6aaaf0; --green:#58c585; --red:#ff7b8a; --blue-lt:#2f5e96; --target:#ff5a6d; --other:#6aaaf0;
+  --b1:#6aaaf0; --b2:#5c9be0; --b3:#4e8cd1; --b4:#437dc0; --b5:#396fae; --b6:#31629b; --b7:#2a5688; --b8:#244b77; --b9:#1f4168; --b10:#1b385a; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);margin:0;padding-block:20px 32px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1280px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+header{display:flex;flex-wrap:wrap;gap:10px 20px;align-items:center;justify-content:space-between}
+h1{font-size:clamp(24px,4vw,38px);margin:0;color:var(--ink);letter-spacing:-.01em;text-wrap:balance}
+.src{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--ink2)}
+.btn{font:inherit;font-weight:500;background:var(--blue);color:var(--panel);border:0;border-radius:6px;padding:8px 14px;cursor:pointer}
+.btn:focus-visible,.file:focus-within{outline:2px solid var(--ink);outline-offset:2px}
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
+.kpi{background:var(--panel);border:2px solid var(--green);border-radius:12px;padding:16px 10px;text-align:center;box-shadow:0 3px 8px rgba(13,44,84,.15)}
+.kpi b{display:block;font-family:var(--mono);font-weight:500;font-size:clamp(24px,3.2vw,40px);color:var(--ink);font-variant-numeric:tabular-nums}
+.kpi span{font-size:14px;font-weight:700;color:var(--green)}
+.kpi.neg b{color:var(--red)} .kpi.neg span{color:var(--red)}
+.grid3{display:grid;grid-template-columns:1.05fr 1fr 1fr;gap:14px}
+.grid2{display:grid;grid-template-columns:1fr 1.3fr;gap:14px}
+.card{background:var(--panel);border-radius:12px;padding:14px 16px;min-width:0;border:1px solid var(--line)}
+.card h2{font-size:20px;margin:0 0 8px;color:var(--blue)}
+.card.brands h2{color:var(--green)} .card.low h2{color:var(--red)}
+.row{display:grid;grid-template-columns:minmax(90px,36%) 1fr;align-items:center;gap:8px;margin:5px 0;font-size:12.5px}
+.row .n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink2)}
+.bar{height:20px;border-radius:0 4px 4px 0;position:relative;min-width:2px}
+.bar i{position:absolute;right:6px;top:50%;transform:translateY(-50%);font-style:normal;font-family:var(--mono);font-size:11.5px;color:#fff;font-weight:500}
+.bar.light i{color:var(--ink)}
+.donutwrap{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center}
+.donutwrap svg{width:min(100%,230px);height:auto;flex:none}
+.legend{list-style:none;margin:0;padding:0;font-size:12px;display:grid;gap:3px;flex:1;min-width:150px}
+.legend li{display:grid;grid-template-columns:12px 1fr auto;gap:6px;align-items:center;color:var(--ink2)}
+.legend li i{width:10px;height:10px;border-radius:2px}
+.legend li b{font-family:var(--mono);font-weight:500;color:var(--ink)}
+.funnel{display:flex;flex-direction:column;align-items:center;gap:4px;margin-top:10px}
+.fbar{height:46px;border-radius:3px;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-size:13px;font-weight:700;gap:8px;min-width:0}
+.fbar span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fbar b{font-family:var(--mono);font-weight:500}
+.note{font-size:12px;color:var(--muted);margin:6px 0 0}
+.lg{display:flex;gap:14px;font-size:12px;color:var(--ink2);margin-bottom:4px}
+.lg i{display:inline-block;width:9px;height:9px;transform:rotate(45deg);margin-right:5px}
+svg text{fill:var(--muted);font-family:var(--font);font-size:11px}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th,.tbl td{padding:6px 8px;text-align:left;border-bottom:1px solid var(--line)}
+.tbl td:nth-child(n+2),.tbl th:nth-child(n+2){text-align:right;font-family:var(--mono)}
+.scroll{overflow-x:auto}
+@media (max-width:1000px){.grid3,.grid2{grid-template-columns:1fr 1fr}.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:640px){.grid3,.grid2{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Vendor Performance Dashboard</h1>
+    <div class="src">
+      <span id="srcnote">Showing figures from your notebook analysis</span>
+      <label class="file"><input id="csv" type="file" accept=".csv" hidden><button class="btn" id="pick" type="button">Load vendor_sales_summary.csv</button></label>
+    </div>
+  </header>
+
+  <section class="kpis" id="kpis"></section>
+
+  <section class="grid3">
+    <div class="card"><h2>Purchase Contribution %</h2><div class="donutwrap" id="donut"></div></div>
+    <div class="card"><h2>Top Vendors By Sales</h2><div id="topv"></div></div>
+    <div class="card brands"><h2>Top Brands By Sales</h2><div id="topb"></div></div>
+  </section>
+
+  <section class="grid2">
+    <div class="card low"><h2>Low Performing Vendors</h2><div class="funnel" id="funnel"></div><p class="note">Average stock turnover, rows with turnover below 1. Lower means more unsold stock.</p></div>
+    <div class="card low"><h2>Low Performing Brands</h2><div id="scatter"></div></div>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script>
+var D = {
+  kpis:[["441.41M","Total Sales ($)"],["307.34M","Total Purchase ($)"],["134.07M","Gross Profit ($)"],["38.7","Profit Margin (%)"],["2.71M","Unsold Capital ($)",1]],
+  vendors:[["DIAGEO NORTH AMERICA INC",67.99],["MARTIGNETTI COMPANIES",39.33],["PERNOD RICARD USA",32.06],["JIM BEAM BRANDS COMPANY",31.42],["BACARDI USA INC",24.85],["CONSTELLATION BRANDS INC",24.22],["E & J GALLO WINERY",18.40],["BROWN-FORMAN CORP",18.25],["ULTRA BEVERAGE COMPANY LLP",16.50],["M S WALKER INC",14.71]],
+  brands:[["Jack Daniels No 7 Black",7.96],["Tito's Handmade Vodka",7.40],["Grey Goose Vodka",7.21],["Capt Morgan Spiced Rum",6.36],["Absolut 80 Proof",6.24],["Jameson Irish Whiskey",5.72],["Ketel One Vodka",5.07],["Baileys Irish Cream",4.15],["Kahlua",3.60],["Tanqueray",3.46]],
+  share:[["DIAGEO NORTH AMERICA INC",16.3],["MARTIGNETTI COMPANIES",8.3],["PERNOD RICARD USA",7.8],["JIM BEAM BRANDS COMPANY",7.6],["BACARDI USA INC",5.7],["CONSTELLATION BRANDS INC",5.0],["BROWN-FORMAN CORP",4.3],["E & J GALLO WINERY",3.9],["ULTRA BEVERAGE COMPANY LLP",3.6],["M S WALKER INC",3.2]],
+  low:[["Alisa Carr Beverages",0.615],["Highland Wine Merchants",0.708],["Park Street Imports",0.751],["Circa Wines",0.756],["Dunn Wine Brokers",0.766]],
+  scatter:null,
+  sample:[["Santa Rita Organic Svgn Bl",9.99,66.47],["Debauchery Pnt Nr",11.58,65.98],["Concannon Glen Ellen Wh Zin",15.95,83.45],["Crown Royal Apple",27.86,89.81],["Sauza Sprklg Wild Berry Marg",27.96,82.15],["Dad's Hat Rye Whiskey",538.89,81.85],["Sbragia Home Ranch Merlot",549.75,66.44],["Goulee Cos d'Estournel 10",558.87,69.43]]
+};
+var $=function(i){return document.getElementById(i)};
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function short(s,n){s=String(s);return s.length>n?s.slice(0,n-1)+'…':s}
+function fmt(v){return v>=1e6?(v/1e6).toFixed(2)+'M':v>=1e3?(v/1e3).toFixed(1)+'K':v.toFixed(0)}
+function ramp(i){return 'var(--b'+(i+1)+')'}
+
+function kpis(){
+  $('kpis').innerHTML=D.kpis.map(function(k){return '<div class="kpi'+(k[2]?' neg':'')+'"><b>'+k[0]+'</b><span>'+k[1]+'</span></div>'}).join('');
+}
+function bars(id,data,colorVar,unit){
+  var mx=Math.max.apply(null,data.map(function(d){return d[1]}));
+  $(id).innerHTML=data.map(function(d){
+    var w=Math.max(8,d[1]/mx*100);
+    return '<div class="row"><span class="n" title="'+esc(d[0])+'">'+esc(short(d[0],22))+'</span><div class="bar" style="width:'+w+'%;background:'+colorVar+'" title="'+esc(d[0])+': '+d[1].toFixed(2)+unit+'"><i>'+(unit==='M'?d[1].toFixed(unit==='M'&&d[1]<10?1:0)+'M':d[1])+'</i></div></div>';
+  }).join('');
+}
+function donut(){
+  var tot=D.share.reduce(function(a,d){return a+d[1]},0), rest=Math.max(0,100-tot);
+  var R=90,r=60,cx=110,cy=110,a=-Math.PI/2,paths='';
+  var items=D.share.concat([["Other vendors",rest]]);
+  items.forEach(function(d,i){
+    var ang=d[1]/100*2*Math.PI,a2=a+ang,lg=ang>Math.PI?1:0;
+    var x1=cx+R*Math.cos(a),y1=cy+R*Math.sin(a),x2=cx+R*Math.cos(a2),y2=cy+R*Math.sin(a2);
+    var x3=cx+r*Math.cos(a2),y3=cy+r*Math.sin(a2),x4=cx+r*Math.cos(a),y4=cy+r*Math.sin(a);
+    var fill=i===items.length-1?'var(--line)':ramp(i);
+    paths+='<path d="M'+x1+' '+y1+' A'+R+' '+R+' 0 '+lg+' 1 '+x2+' '+y2+' L'+x3+' '+y3+' A'+r+' '+r+' 0 '+lg+' 0 '+x4+' '+y4+' Z" fill="'+fill+'" stroke="var(--panel)" stroke-width="2"><title>'+esc(d[0])+': '+d[1].toFixed(1)+'%</title></path>';
+    a=a2;
+  });
+  var svg='<svg viewBox="0 0 220 220" role="img" aria-label="Top 10 vendors purchase contribution">'+paths+
+   '<text x="110" y="108" text-anchor="middle" style="font-size:30px;font-family:var(--mono);fill:var(--ink)">'+tot.toFixed(1)+'</text>'+
+   '<text x="110" y="128" text-anchor="middle" style="font-size:10px">Top 10 vendors</text></svg>';
+  var lg='<ul class="legend">'+items.map(function(d,i){return '<li><i style="background:'+(i===items.length-1?'var(--line)':ramp(i))+'"></i><span>'+esc(short(d[0],24))+'</span><b>'+d[1].toFixed(1)+'%</b></li>'}).join('')+'</ul>';
+  $('donut').innerHTML=svg+lg;
+}
+function funnel(){
+  var cols=['#0f4c9a','#8cc0f5','#4a90e2','#ef8a8a','#b0001a'];
+  var n=D.low.length;
+  $('funnel').innerHTML=D.low.map(function(d,i){
+    var w=100-i*(34/Math.max(1,n-1)); var dark=(i!==1);
+    return '<div class="fbar" style="width:'+w+'%;background:'+cols[i%5]+';'+(i===1?'color:#0d2c54':'')+'"><span title="'+esc(d[0])+'">'+esc(d[0])+'</span><b>'+d[1].toFixed(3)+'</b></div>';
+  }).join('');
+}
+function scatter(){
+  var el=$('scatter');
+  if(!D.scatter){
+    el.innerHTML='<p class="note" style="margin:0 0 8px">Load your CSV to see every brand as a point. Below are the low-sales, high-margin brands found in the notebook (sales at or below $560, margin at or above 65%).</p><div class="scroll"><table class="tbl"><tr><th>Brand</th><th>Sales ($)</th><th>Margin (%)</th></tr>'+
+      D.sample.map(function(s){return '<tr><td>'+esc(s[0])+'</td><td>'+s[1].toFixed(2)+'</td><td>'+s[2].toFixed(2)+'</td></tr>'}).join('')+'</table></div>';
+    return;
+  }
+  var S=D.scatter,W=640,H=330,L=44,B=30,T=10,Rr=12,XM=1000;
+  var sx=function(v){return L+Math.min(v,XM)/XM*(W-L-Rr)}, sy=function(v){return T+(1-Math.min(Math.max(v,0),100)/100)*(H-T-B)};
+  var g='';
+  [0,25,50,75,100].forEach(function(t){g+='<line x1="'+L+'" x2="'+(W-Rr)+'" y1="'+sy(t)+'" y2="'+sy(t)+'" stroke="var(--line)"/><text x="'+(L-6)+'" y="'+(sy(t)+4)+'" text-anchor="end">'+t+'</text>'});
+  [0,250,500,750,1000].forEach(function(t){g+='<text x="'+sx(t)+'" y="'+(H-10)+'" text-anchor="middle">'+t+'</text>'});
+  var pts='';
+  S.pts.forEach(function(p){ if(p.x>XM)return; var t=p.t;
+    pts+='<circle cx="'+sx(p.x)+'" cy="'+sy(p.y)+'" r="'+(t?3.6:2.8)+'" fill="'+(t?'var(--target)':'var(--other)')+'" fill-opacity="'+(t?.95:.55)+'"><title>'+esc(p.n)+': $'+p.x.toFixed(0)+', '+p.y.toFixed(1)+'%</title></circle>'});
+  var th='<line x1="'+sx(S.lowSales)+'" x2="'+sx(S.lowSales)+'" y1="'+T+'" y2="'+(H-B)+'" stroke="var(--ink2)" stroke-dasharray="5 4"/><line x1="'+L+'" x2="'+(W-Rr)+'" y1="'+sy(S.highMargin)+'" y2="'+sy(S.highMargin)+'" stroke="var(--ink2)" stroke-dasharray="5 4"/>';
+  el.innerHTML='<div class="lg"><span><i style="background:var(--other)"></i>No</span><span><i style="background:var(--target)"></i>Yes (target brand)</span></div>'+
+   '<svg viewBox="0 0 '+W+' '+H+'" width="100%" role="img" aria-label="Scatter of brand sales against profit margin">'+g+th+pts+
+   '<text x="'+(W/2)+'" y="'+(H)+'" text-anchor="middle">Total sales ($)</text><text transform="rotate(-90)" x="'+(-H/2)+'" y="12" text-anchor="middle">Avg profit margin (%)</text></svg>'+
+   '<p class="note">'+S.count+' target brands: sales at or below $'+S.lowSales.toFixed(0)+' and margin at or above '+S.highMargin.toFixed(1)+'%. Brands with sales above $1,000 are off this axis.</p>';
+}
+function render(){kpis();donut();bars('topv',D.vendors,'var(--blue)','M');bars('topb',D.brands,'var(--green)','M');funnel();scatter()}
+render();
+
+/* CSV mode: rebuild every number from the loaded file */
+function q(arr,p){var a=arr.slice().sort(function(x,y){return x-y}),i=(a.length-1)*p,lo=Math.floor(i),hi=Math.ceil(i);return a[lo]+(a[hi]-a[lo])*(i-lo)}
+function groupSum(rows,key,val){var m={};rows.forEach(function(r){m[r[key]]=(m[r[key]]||0)+val(r)});return m}
+function top(m,n){return Object.keys(m).map(function(k){return[k,m[k]]}).sort(function(a,b){return b[1]-a[1]}).slice(0,n)}
+function fromCsv(rows){
+  var has=function(c){return rows.length&&c in rows[0]}, num=function(v){var x=parseFloat(v);return isFinite(x)?x:0};
+  rows=rows.filter(function(r){return r.VendorName});
+  if(has('GrossProfit')&&has('ProfitMargin')&&has('TotalSalesQuantity'))
+    rows=rows.filter(function(r){return num(r.GrossProfit)>0&&num(r.ProfitMargin)>0&&num(r.TotalSalesQuantity)>0});
+  if(!rows.length)throw new Error('No usable rows');
+  var sum=function(c){return rows.reduce(function(a,r){return a+num(r[c])},0)};
+  var sales=sum('TotalSalesDollars'),pur=sum('TotalDollarsQuantity'),gp=sum('GrossProfit');
+  var avgM=rows.reduce(function(a,r){return a+num(r.ProfitMargin)},0)/rows.length;
+  var unsold=rows.reduce(function(a,r){return a+(num(r.TotalPurchaseQuantity)-num(r.TotalSalesQuantity))*num(r.PurchasePrice)},0);
+  var m=function(v){return(v/1e6).toFixed(2)+'M'};
+  D.kpis=[[m(sales),"Total Sales ($)"],[m(pur),"Total Purchase ($)"],[m(gp),"Gross Profit ($)"],[avgM.toFixed(1),"Profit Margin (%)"],[m(unsold),"Unsold Capital ($)",1]];
+  D.vendors=top(groupSum(rows,'VendorName',function(r){return num(r.TotalSalesDollars)}),10).map(function(d){return[d[0],d[1]/1e6]});
+  D.brands=top(groupSum(rows,'Description',function(r){return num(r.TotalSalesDollars)}),10).map(function(d){return[d[0],d[1]/1e6]});
+  D.share=top(groupSum(rows,'VendorName',function(r){return num(r.TotalDollarsQuantity)}),10).map(function(d){return[d[0],d[1]/pur*100]});
+  var tv={};rows.forEach(function(r){var t=num(r.StockTurnover);if(t<1&&t>=0){(tv[r.VendorName]=tv[r.VendorName]||[]).push(t)}});
+  D.low=Object.keys(tv).map(function(k){return[k,tv[k].reduce(function(a,b){return a+b},0)/tv[k].length]}).sort(function(a,b){return a[1]-b[1]}).slice(0,5);
+  var bp={};rows.forEach(function(r){var b=bp[r.Description]=bp[r.Description]||{s:0,m:0,c:0};b.s+=num(r.TotalSalesDollars);b.m+=num(r.ProfitMargin);b.c++});
+  var list=Object.keys(bp).map(function(k){return{n:k,x:bp[k].s,y:bp[k].m/bp[k].c}});
+  var lo=q(list.map(function(p){return p.x}),.15),hi=q(list.map(function(p){return p.y}),.85),cnt=0;
+  list.forEach(function(p){p.t=p.x<=lo&&p.y>=hi;if(p.t)cnt++});
+  D.scatter={pts:list,lowSales:lo,highMargin:hi,count:cnt};
+}
+$('pick').addEventListener('click',function(){$('csv').click()});
+$('csv').addEventListener('change',function(e){
+  var f=e.target.files[0]; if(!f)return;
+  Papa.parse(f,{header:true,skipEmptyLines:true,complete:function(res){
+    try{fromCsv(res.data);$('srcnote').textContent='Loaded '+f.name+' ('+res.data.length.toLocaleString()+' rows, cleaned as in your notebook)';render()}
+    catch(err){$('srcnote').textContent='Could not read that file: '+err.message+'. Use the exported vendor_sales_summary table.'}
+  },error:function(){$('srcnote').textContent='Could not read that file.'}});
+});
+</script>
