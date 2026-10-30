@@ -11,7 +11,6 @@ Analysis of vendor, brand, pricing and inventory performance for a beverage dist
 | `notebooks/vendor_perfromance_analysis.ipynb` | Cleaning, plots, business questions, confidence intervals and t-test. |
 | `report/` | Full project report (Word and PDF). |
 | `dashboard/` | Dashboard images and the web dashboard. |
-| `portfolio/index.html` | Personal portfolio page (open it in a browser, or publish it with GitHub Pages). |
 | `images/` | Plots exported from the notebook. |
 
 ## How to run
